@@ -20,9 +20,10 @@ CONVEX2_IM_PATH = os.path.join(IM_DIR, 'convex2.jpg')
 SPIRAL_IM_PATH = os.path.join(IM_DIR, 'spiral.jpg')
 BIG_BENT_IM_PATH = os.path.join(IM_DIR, 'bigbent.jpg')
 SAURAV_IM_PATH = os.path.join(IM_DIR, 'saurav.jpg')
+TABLE_IM_PATH = os.path.join(IM_DIR, 'table.jpg')
 
 #CHOSEN = BIG_BENT_IM_PATH
-CHOSEN = SAURAV_IM_PATH
+CHOSEN = TABLE_IM_PATH
 LIVE_FLAG = False
 
 GRID_W = 4
@@ -32,7 +33,7 @@ MIN_DIST = 5  # NOTE: may have to change this later
 MIN_DIST_SQ = MIN_DIST ** 2
 
 BLOCKSIZE = 45
-THRESH_WEIGHT = 5
+THRESH_WEIGHT = 15
 
 RGB=False
 
@@ -62,7 +63,7 @@ def process(img, design=SPIRAL_IM_PATH):
 
     thresh = cv2.adaptiveThreshold(grayscale, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, BLOCKSIZE, THRESH_WEIGHT)
     #kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(7,7))
-    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(9,9))
+    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(5,5))
     opened = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, kernel)
 
     contourImage = opened.copy()
@@ -103,7 +104,7 @@ def process(img, design=SPIRAL_IM_PATH):
                 area = int(cv2.contourArea(quad))
                 #print area, 'vs.', totalarea
                 #if area <= totalarea * 0.8:
-                if area <= totalarea * 0.6:
+                if area <= totalarea * 0.9 and area >= 100:
                     quadDict = {'coords': quad, 'centroid': np.array([cx, cy]), 'area': area}
                     if area > maxArea:
                         maxArea = area
@@ -134,7 +135,6 @@ def process(img, design=SPIRAL_IM_PATH):
     flatgrid = cv2.warpPerspective(img, persp, (width, height))
 
     if len(quadDicts) < GRID_W*GRID_H:
-        time.sleep(0.2)
         return
 
     
@@ -272,7 +272,7 @@ def process(img, design=SPIRAL_IM_PATH):
                 first = False
                 dst = monkey
             else:
-                dst += monkey
+                dst = cv2.add(dst,monkey)
 
     ret, masky = cv2.threshold(dst, 2, 255, cv2.THRESH_BINARY_INV)
     cleared = cv2.bitwise_and(img, img, mask=masky[:,:,1])
