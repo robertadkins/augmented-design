@@ -4,6 +4,7 @@ import os
 import math
 import time
 import copy
+import sys
 
 ################################################################################
 # Constants
@@ -36,7 +37,7 @@ THRESH_WEIGHT = 5
 # Code
 ################################################################################
 
-def process(img):
+def process(img, design=SPIRAL_IM_PATH):
 
     # first, find, the bounding box of the grid
 
@@ -237,7 +238,7 @@ def process(img):
     #for i in range(len(corners)):
     #    corners[i] = corners[i][0] / corners[i][2]
 
-    spiral = cv2.imread(SPIRAL_IM_PATH, 0)
+    spiral = cv2.imread(design, 0)
     sheight, swidth = spiral.shape[:2]
     ##print sheight, swidth
     dst = np.zeros((width, height))
@@ -337,12 +338,19 @@ if __name__ == '__main__':
         cv2.namedWindow('processed', cv2.WINDOW_NORMAL)
         while True:
             ret, frame = cap.read() #read a frame
-            process(frame)
+            if len(sys.argv) == 1:
+                process(frame)
+            else:
+                process(frame, sys.argv[1])
             if cv2.waitKey(1) & 0xFF == ord('q'):
                 break
     else:
+        img = None
         img = cv2.imread(CHOSEN, cv2.CV_LOAD_IMAGE_COLOR)
-        process(img)
+        if len(sys.argv) == 1:
+            process(img)
+        else:
+            process(img, sys.argv[1])
         cv2.waitKey(0)
     cv2.destroyAllWindows()
 
