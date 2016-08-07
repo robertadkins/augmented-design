@@ -2,6 +2,8 @@ import cv2
 import numpy as np
 import os
 import math
+import time
+import copy
 
 ################################################################################
 # Constants
@@ -15,15 +17,16 @@ FLAT2_IM_PATH = os.path.join(IM_DIR, 'flat2.jpg')
 CONCAVE2CROP_IM_PATH = os.path.join(IM_DIR, 'concave2crop.jpg')
 CONVEX2_IM_PATH = os.path.join(IM_DIR, 'convex2.jpg')
 SPIRAL_IM_PATH = os.path.join(IM_DIR, 'spiral.jpg')
+BIG_BENT_IM_PATH = os.path.join(IM_DIR, 'bigbent.jpg')
 
-CHOSEN = CONCAVE2CROP_IM_PATH
+CHOSEN = BIG_BENT_IM_PATH
 
 LIVE_FLAG = False
 
-GRID_W = 4
-GRID_H = 4
+GRID_W = 8
+GRID_H = 8
 
-MIN_DIST = 10 #40  # NOTE: may have to change this later
+MIN_DIST = 5  # NOTE: may have to change this later
 MIN_DIST_SQ = MIN_DIST ** 2
 
 BLOCKSIZE = 45
@@ -34,12 +37,22 @@ THRESH_WEIGHT = 5
 ################################################################################
 
 def process(img):
-    
+
+    # first, find, the bounding box of the grid
+
+    #lower = (200, 60, 30)
+    #upper = (85, 90, 50)
+    #hsv = cv2.cvtColor(img, cv2.COLOR_RGB2HSV)
+
+    #masky = cv2.inRange(hsv, lower, upper)
+    #img = cv2.bitwise_and(img,img,mask=masky)
+    #cv2.imshow('whoa', img)
+    #return
     grayscale = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 
     height, width = grayscale.shape[:2]
     totalarea = width * height
-    print totalarea
+    #print totalarea
     #ret, thresh = cv2.threshold(grayscale, 160, 255, cv2.THRESH_BINARY)
     #ret, thresh = cv2.threshold(grayscale, 100, 255, cv2.THRESH_BINARY)
 
@@ -60,7 +73,7 @@ def process(img):
     quadDicts = []
     bigQuad = None
     maxArea = 0
-    
+
     if not contours:
         return
 
@@ -83,7 +96,8 @@ def process(img):
             if len(quad) == 4:
                 quad = sorted(quad, cmp=(lambda a,b : int(np.arctan2(cy - a[1], cx - a[0]) - np.arctan2(cy - b[1], cx - b[0]))))
                 quad = np.array([quad]) # expected format by cv2 functions
-                area = cv2.contourArea(quad)
+                area = int(cv2.contourArea(quad))
+                #print area, 'vs.', totalarea
                 if area <= totalarea * 0.8:
                     quadDict = {'coords': quad, 'centroid': np.array([cx, cy]), 'area': area}
                     if area > maxArea:
@@ -92,21 +106,32 @@ def process(img):
                     # TODO this lambda causes the polys to cross over themselves
                     # on some cases
                     quadDicts.append(quadDict)
-                    #cv2.drawContours(squareContourImage, dpHull, -1, (255,0,0), 2)
+                    #cv2.drawContours(squareContourImage, dpHull, -1, (255,0,0), 2
                     cv2.drawContours(squareContourImage, quad, -1, (0,255,0), 1)
                     #cv2.polylines(squareContourImage, dpHull, True, (0,255,0), 1)
                     cv2.drawContours(squareContourImage, np.matrix([[cx,cy]]),
                                      -1, (0,0,255), 2)
 
-                    
+
+
     # adjust for perspective of big quad
-    print bigQuad
-    quadDicts.remove(bigQuad)
+    #print 'big quad'
+    #print bigQuad
+    #print 'dicts1'
+    #print quadDicts
+    for i in range(len(quadDicts)):
+        if quadDicts[i]['coords'][0][0][0] == bigQuad['coords'][0][0][0] and quadDicts[i]['coords'][0][0][1] == bigQuad['coords'][0][0][1]:
+            quadDicts.pop(i)
+            break
     persp = np.matrix((3,3))
     dst = np.array([[width - 1, height - 1], [0, height - 1], [0,0], [width - 1, 0]], dtype=np.float32)
     persp = cv2.getPerspectiveTransform(bigQuad['coords'][0].astype(np.float32), dst)
     flatgrid = cv2.warpPerspective(img, persp, (width, height))
 
+    if len(quadDicts) < GRID_W*GRID_H:
+        time.sleep(0.2)
+        return
+    
     def projSortArea(q1, q2):
         return int(q1['area'] - q2['area'])
 
@@ -147,6 +172,8 @@ def process(img):
     quadDicts = newQuadDicts
 
     b = 0
+    ##print 'dicts'
+    ##print quadDicts
     # connect the squares
     for quadDict in quadDicts:
         quadDict['avgcoords'] = np.copy(quadDict['coords'])
@@ -212,10 +239,9 @@ def process(img):
 
     spiral = cv2.imread(SPIRAL_IM_PATH, 0)
     sheight, swidth = spiral.shape[:2]
-    print sheight, swidth
+    ##print sheight, swidth
     dst = np.zeros((width, height))
 
-    cv2.imshow('spiral', spiral)
     first = True
     for r in range(GRID_H):
         for c in range(GRID_W):
@@ -225,15 +251,14 @@ def process(img):
             ul = [c*swidth/GRID_W, r*sheight/GRID_H]
             bl = [(c+1)*swidth/GRID_W, r*sheight/GRID_H]
             design_coords = np.array([br, ur, ul, bl], dtype=np.float32)
-            print '(',r,',',c,')'
-            print design_coords
-            print quadDicts[r*GRID_W + c]['avgcoords'][0].astype(np.float32)
+            #print '(',r,',',c,')'
+            #print design_coords
+            #print quadDicts[r*GRID_W + c]['avgcoords'][0].astype(np.float32)
             persp = np.matrix((3,3))
             persp = cv2.getPerspectiveTransform(base, quadDicts[r*GRID_W + c]['avgcoords'][0].astype(np.float32))
-            cv2.imshow('spiral', spiral[ul[0]:br[0],ul[1]:ur[1]])
             monkey = cv2.warpPerspective(spiral[ul[0]:br[0],ul[1]:ur[1]], persp, (width, height))
-            print monkey.shape[:2]
-            print dst.shape[:2]
+            #print monkey.shape[:2]
+            #print dst.shape[:2]
             if first:
                 first = False
                 dst = monkey
@@ -252,7 +277,8 @@ def process(img):
         #cv2.imshow('contours', contourImage)
         #cv2.imshow('squares', squareContourImage)
         #cv2.imshow('whoa', flatgrid)
-        cv2.imshow('avg', avgGridImage)
+        #cv2.imshow('avg', avgGridImage)
+        cv2.imshow('spiral', spiral)
         cv2.imshow('final', added)
         ypos = 100
         xpos = 10
@@ -263,8 +289,9 @@ def process(img):
         #cv2.moveWindow('contours', xpos + delta*3, ypos)
         #cv2.moveWindow('squares', xpos + delta*4, ypos)
         #cv2.moveWindow('whoa', xpos + delta*5, ypos)
-        cv2.moveWindow('avg', xpos, ypos + delta)
-        cv2.moveWindow('final', xpos + delta, ypos + delta)
+        cv2.moveWindow('avg', xpos, ypos)
+        cv2.moveWindow('spiral', xpos + delta, ypos)
+        cv2.moveWindow('final', xpos + delta*2, ypos)
     else:
         #cv2.imshow('thresh', opened)
         cv2.imshow('processed', added)
@@ -273,6 +300,7 @@ def process(img):
         delta = 300
         cv2.moveWindow('processed', xpos, ypos)
         #cv2.moveWindow('thresh', xpos, ypos+delta*2)
+    return added
         
 
 # there should be at least 4 points in the hull before passing it to this function
