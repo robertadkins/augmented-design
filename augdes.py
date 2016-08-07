@@ -12,12 +12,16 @@ FLAT_IM_PATH = os.path.join(IM_DIR, 'flat.jpg')
 CONCAVE_IM_PATH = os.path.join(IM_DIR, 'concave.jpg')
 CONVEX_IM_PATH = os.path.join(IM_DIR, 'convex.jpg')
 FLAT2_IM_PATH = os.path.join(IM_DIR, 'flat2.jpg')
-CONCAVE2_IM_PATH = os.path.join(IM_DIR, 'concave2.jpg')
+CONCAVE2CROP_IM_PATH = os.path.join(IM_DIR, 'concave2crop.jpg')
 CONVEX2_IM_PATH = os.path.join(IM_DIR, 'convex2.jpg')
 
-CHOSEN = CONCAVE_IM_PATH
+CHOSEN = CONCAVE2CROP_IM_PATH
 
-LIVE_FLAG = True
+LIVE_FLAG = False
+
+## CONSTANT
+MIN_DIST = 10 #40  # NOTE: may have to change this later
+MIN_DIST_SQ = MIN_DIST ** 2
 
 ################################################################################
 # Code
@@ -25,7 +29,7 @@ LIVE_FLAG = True
 
 def process(img):
     
-    grayscale = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    grayscale = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 
     height, width = grayscale.shape[:2]
     totalarea = width * height
@@ -55,13 +59,9 @@ def process(img):
     else:
         # test each contour
         for contour in contours:
-            # approximate contour with accuracy proportional
-            # to the contour perimeter
-
             M = cv2.moments(contour)
             cx = int(M['m10']/M['m00'])
             cy = int(M['m01']/M['m00'])
-
  
             ## CONSTANT
             polygonConstant = 0.02
@@ -74,13 +74,15 @@ def process(img):
                 # compute the quadrilaterals
                 quads = computeQuads(goodHull, cx, cy)
 
-                if len(quads) == 4 and cv2.contourArea(np.array([quads])) <= totalarea/120:
+                if len(quads) == 4:
                     quads = sorted(quads, cmp=(lambda a,b : int(np.arctan2(cy - a[1], cx - a[0]) - np.arctan2(cy - b[1], cx - b[0]))))
-                    badQuads = np.array([quads])
-    	            cv2.drawContours(squareContourImage, dpHull, -1, (255,0,0), 2)
-                    cv2.drawContours(squareContourImage, badQuads, -1, (0,255,0), 1)
-                    cv2.polylines(squareContourImage, dpHull, True, (0,255,0), 1)
-    	            cv2.drawContours(squareContourImage, np.matrix([[cx,cy]]), -1, (0,0,255), 2)
+                    if cv2.contourArea(np.array([quads])) <= totalarea/2: #totalarea/4:
+                        # TODO this lambda causes the polys to cross over themselves on some cases
+                        badQuads = np.array([quads])
+                        #cv2.drawContours(squareContourImage, dpHull, -1, (255,0,0), 2)
+                        cv2.drawContours(squareContourImage, badQuads, -1, (0,255,0), 1)
+                        #cv2.polylines(squareContourImage, dpHull, True, (0,255,0), 1)
+                        cv2.drawContours(squareContourImage, np.matrix([[cx,cy]]), -1, (0,0,255), 2)
 
     if not LIVE_FLAG:
         cv2.imshow('original', img)
@@ -109,10 +111,6 @@ def process(img):
 
 # there should be at least 4 points in the hull
 def computeQuads(hull, cx, cy):
-
-    ## CONSTANT
-    MIN_DIST = 10  # NOTE: may have to change this later
-    MIN_DIST_SQ = MIN_DIST ** 2
     # farthest to closest
     sortedHull = sorted(hull, cmp=(lambda x,y : distSq(x,[cx,cy]) - distSq(y,[cx,cy])), reverse = True)
     candidates = []
