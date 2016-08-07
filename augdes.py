@@ -33,6 +33,8 @@ MIN_DIST_SQ = MIN_DIST ** 2
 BLOCKSIZE = 45
 THRESH_WEIGHT = 5
 
+RGB=False
+
 ################################################################################
 # Code
 ################################################################################
@@ -238,10 +240,10 @@ def process(img, design=SPIRAL_IM_PATH):
     #for i in range(len(corners)):
     #    corners[i] = corners[i][0] / corners[i][2]
 
-    spiral = cv2.imread(design, 0)
+    spiral = cv2.imread(design, cv2.CV_LOAD_IMAGE_COLOR)
     sheight, swidth = spiral.shape[:2]
     ##print sheight, swidth
-    dst = np.zeros((width, height))
+    dst = np.zeros((width, height, 3))
 
     first = True
     for r in range(GRID_H):
@@ -267,7 +269,7 @@ def process(img, design=SPIRAL_IM_PATH):
                 dst += monkey
 
     ret, masky = cv2.threshold(dst, 2, 255, cv2.THRESH_BINARY_INV)
-    cleared = cv2.bitwise_and(grayscale, grayscale, mask=masky)
+    cleared = cv2.bitwise_and(img, img, mask=masky[:,:,1])
     added = cleared + dst
     
     # display results
