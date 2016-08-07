@@ -20,12 +20,12 @@ CONVEX2_IM_PATH = os.path.join(IM_DIR, 'convex2.jpg')
 SPIRAL_IM_PATH = os.path.join(IM_DIR, 'spiral.jpg')
 BIG_BENT_IM_PATH = os.path.join(IM_DIR, 'bigbent.jpg')
 
-CHOSEN = BIG_BENT_IM_PATH
+CHOSEN = CONCAVE2CROP_IM_PATH
 
 LIVE_FLAG = False
 
-GRID_W = 8
-GRID_H = 8
+GRID_W = 4
+GRID_H = 4
 
 MIN_DIST = 5  # NOTE: may have to change this later
 MIN_DIST_SQ = MIN_DIST ** 2
@@ -34,6 +34,8 @@ BLOCKSIZE = 45
 THRESH_WEIGHT = 5
 
 RGB=False
+
+DEBUG=True
 
 ################################################################################
 # Code
@@ -61,7 +63,7 @@ def process(img, design=SPIRAL_IM_PATH):
 
     thresh = cv2.adaptiveThreshold(grayscale, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, BLOCKSIZE, THRESH_WEIGHT)
     #kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(7,7))
-    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(9,9))
+    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(7,7))
     opened = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, kernel)
 
     contourImage = opened.copy()
@@ -101,7 +103,7 @@ def process(img, design=SPIRAL_IM_PATH):
                 quad = np.array([quad]) # expected format by cv2 functions
                 area = int(cv2.contourArea(quad))
                 #print area, 'vs.', totalarea
-                if area <= totalarea * 0.8:
+                if area <= totalarea * 0.9:
                     quadDict = {'coords': quad, 'centroid': np.array([cx, cy]), 'area': area}
                     if area > maxArea:
                         maxArea = area
@@ -269,29 +271,31 @@ def process(img, design=SPIRAL_IM_PATH):
                 dst += monkey
 
     ret, masky = cv2.threshold(dst, 2, 255, cv2.THRESH_BINARY_INV)
-    cleared = cv2.bitwise_and(img, img, mask=masky[:,:,1])
+    cleared = cv2.bitwise_and(img, img, mask=(masky[:,:,0] + masky[:,:,1] + masky[:,:,2])/3)
     added = cleared + dst
     
     # display results
     if not LIVE_FLAG:
         cv2.imshow('original', img)
-        #cv2.imshow('thresh', thresh)
-        #cv2.imshow('opened', opened)
-        #cv2.imshow('contours', contourImage)
-        #cv2.imshow('squares', squareContourImage)
-        #cv2.imshow('whoa', flatgrid)
-        #cv2.imshow('avg', avgGridImage)
+        if DEBUG:
+            cv2.imshow('thresh', thresh)
+            cv2.imshow('opened', opened)
+            cv2.imshow('contours', contourImage)
+            cv2.imshow('squares', squareContourImage)
+            cv2.imshow('whoa', flatgrid)
+            cv2.imshow('avg', avgGridImage)
         cv2.imshow('spiral', spiral)
         cv2.imshow('final', added)
         ypos = 100
         xpos = 10
         delta = 300
         cv2.moveWindow('original', xpos, ypos)
-        #cv2.moveWindow('thresh', xpos + delta, ypos)
-        #cv2.moveWindow('opened', xpos + delta*2, ypos)
-        #cv2.moveWindow('contours', xpos + delta*3, ypos)
-        #cv2.moveWindow('squares', xpos + delta*4, ypos)
-        #cv2.moveWindow('whoa', xpos + delta*5, ypos)
+        if DEBUG:
+            cv2.moveWindow('thresh', xpos + delta, ypos)
+            cv2.moveWindow('opened', xpos + delta*2, ypos)
+            cv2.moveWindow('contours', xpos + delta*3, ypos)
+            cv2.moveWindow('squares', xpos + delta*4, ypos)
+            cv2.moveWindow('whoa', xpos + delta*5, ypos)
         cv2.moveWindow('avg', xpos, ypos)
         cv2.moveWindow('spiral', xpos + delta, ypos)
         cv2.moveWindow('final', xpos + delta*2, ypos)
