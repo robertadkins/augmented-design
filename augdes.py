@@ -26,13 +26,16 @@ LIVE_FLAG = True
 def process(img):
     
     grayscale = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-    
+
+    height, width = grayscale.shape[:2]
+    totalarea = width * height
+    print totalarea
     #ret, thresh = cv2.threshold(grayscale, 160, 255, cv2.THRESH_BINARY)
     #ret, thresh = cv2.threshold(grayscale, 100, 255, cv2.THRESH_BINARY)
 
     ## CONSTANT
     blocksize = 45
-    threshWeight = 0
+    threshWeight = 5
 
     thresh = cv2.adaptiveThreshold(grayscale, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, blocksize, threshWeight)
     #kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(7,7))
@@ -71,7 +74,7 @@ def process(img):
                 # compute the quadrilaterals
                 quads = computeQuads(goodHull, cx, cy)
 
-                if len(quads) == 4:
+                if len(quads) == 4 and cv2.contourArea(np.array([quads])) <= totalarea/120:
                     quads = sorted(quads, cmp=(lambda a,b : int(np.arctan2(cy - a[1], cx - a[0]) - np.arctan2(cy - b[1], cx - b[0]))))
                     badQuads = np.array([quads])
     	            cv2.drawContours(squareContourImage, dpHull, -1, (255,0,0), 2)
