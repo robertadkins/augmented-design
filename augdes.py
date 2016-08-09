@@ -166,7 +166,8 @@ def process(img, design=SPIRAL_IM_PATH):
 
     # connect the squares
     for quadDict in quadDicts:
-        print quadDict
+        if DEBUG:
+            print quadDict
         if quadDict == 0:
             return
         quadDict['avgcoords'] = np.copy(quadDict['coords'])
