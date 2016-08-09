@@ -19,9 +19,10 @@ CONCAVE2CROP_IM_PATH = os.path.join(IM_DIR, 'concave2crop.jpg')
 CONVEX2_IM_PATH = os.path.join(IM_DIR, 'convex2.jpg')
 SPIRAL_IM_PATH = os.path.join(IM_DIR, 'spiral.jpg')
 BIG_BENT_IM_PATH = os.path.join(IM_DIR, 'bigbent.jpg')
+SAURAV_IM_PATH = os.path.join(IM_DIR, 'saurav.jpg')
+TABLE_IM_PATH = os.path.join(IM_DIR, 'table.jpg')
 
-CHOSEN = CONCAVE2CROP_IM_PATH
-
+CHOSEN = TABLE_IM_PATH
 LIVE_FLAG = False
 
 GRID_W = 4
@@ -31,7 +32,9 @@ MIN_DIST = 5  # NOTE: may have to change this later
 MIN_DIST_SQ = MIN_DIST ** 2
 
 BLOCKSIZE = 45
-THRESH_WEIGHT = 5
+THRESH_WEIGHT = 15
+
+RGB=False
 
 RGB=False
 
@@ -42,28 +45,13 @@ DEBUG=True
 ################################################################################
 
 def process(img, design=SPIRAL_IM_PATH):
-
-    # first, find, the bounding box of the grid
-
-    #lower = (200, 60, 30)
-    #upper = (85, 90, 50)
-    #hsv = cv2.cvtColor(img, cv2.COLOR_RGB2HSV)
-
-    #masky = cv2.inRange(hsv, lower, upper)
-    #img = cv2.bitwise_and(img,img,mask=masky)
-    #cv2.imshow('whoa', img)
-    #return
     grayscale = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 
     height, width = grayscale.shape[:2]
     totalarea = width * height
-    #print totalarea
-    #ret, thresh = cv2.threshold(grayscale, 160, 255, cv2.THRESH_BINARY)
-    #ret, thresh = cv2.threshold(grayscale, 100, 255, cv2.THRESH_BINARY)
 
     thresh = cv2.adaptiveThreshold(grayscale, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, BLOCKSIZE, THRESH_WEIGHT)
-    #kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(7,7))
-    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(7,7))
+    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(5,5))
     opened = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, kernel)
 
     contourImage = opened.copy()
@@ -103,7 +91,8 @@ def process(img, design=SPIRAL_IM_PATH):
                 quad = np.array([quad]) # expected format by cv2 functions
                 area = int(cv2.contourArea(quad))
                 #print area, 'vs.', totalarea
-                if area <= totalarea * 0.9:
+
+                if area <= totalarea * 0.9 and area >= 100:
                     quadDict = {'coords': quad, 'centroid': np.array([cx, cy]), 'area': area}
                     if area > maxArea:
                         maxArea = area
@@ -134,9 +123,8 @@ def process(img, design=SPIRAL_IM_PATH):
     flatgrid = cv2.warpPerspective(img, persp, (width, height))
 
     if len(quadDicts) < GRID_W*GRID_H:
-        time.sleep(0.2)
         return
-    
+
     def projSortArea(q1, q2):
         return int(q1['area'] - q2['area'])
 
@@ -176,13 +164,12 @@ def process(img, design=SPIRAL_IM_PATH):
 
     quadDicts = newQuadDicts
 
-    b = 0
-    ##print 'dicts'
-    ##print quadDicts
     # connect the squares
     for quadDict in quadDicts:
+        print quadDict
+        if quadDict == 0:
+            return
         quadDict['avgcoords'] = np.copy(quadDict['coords'])
-        b += 1
   
     for i in range(GRID_H + 1):
         for j in range(GRID_W + 1):
@@ -244,7 +231,6 @@ def process(img, design=SPIRAL_IM_PATH):
 
     spiral = cv2.imread(design, cv2.CV_LOAD_IMAGE_COLOR)
     sheight, swidth = spiral.shape[:2]
-    ##print sheight, swidth
     dst = np.zeros((width, height, 3))
 
     first = True
@@ -268,7 +254,7 @@ def process(img, design=SPIRAL_IM_PATH):
                 first = False
                 dst = monkey
             else:
-                dst += monkey
+                dst = cv2.add(dst,monkey)
 
     ret, masky = cv2.threshold(dst, 2, 255, cv2.THRESH_BINARY_INV)
     cleared = cv2.bitwise_and(img, img, mask=(masky[:,:,0] + masky[:,:,1] + masky[:,:,2])/3)
@@ -296,7 +282,7 @@ def process(img, design=SPIRAL_IM_PATH):
             cv2.moveWindow('contours', xpos + delta*3, ypos)
             cv2.moveWindow('squares', xpos + delta*4, ypos)
             cv2.moveWindow('whoa', xpos + delta*5, ypos)
-        cv2.moveWindow('avg', xpos, ypos)
+            cv2.moveWindow('avg', xpos, ypos)
         cv2.moveWindow('spiral', xpos + delta, ypos)
         cv2.moveWindow('final', xpos + delta*2, ypos)
     else:
